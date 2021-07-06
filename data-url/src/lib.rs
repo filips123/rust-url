@@ -18,6 +18,8 @@
 #[macro_use]
 extern crate matches;
 
+use std::error::Error;
+
 macro_rules! require {
     ($condition: expr) => {
         if !$condition {
@@ -87,6 +89,7 @@ impl<'a> DataUrl<'a> {
     ) -> Result<Option<FragmentIdentifier<'a>>, forgiving_base64::DecodeError<E>>
     where
         F: FnMut(&[u8]) -> Result<(), E>,
+        E: Error,
     {
         if self.base64 {
             decode_with_base64(self.encoded_body_plus_fragment, write_body_bytes)
@@ -327,6 +330,7 @@ fn decode_with_base64<F, E>(
 ) -> Result<Option<FragmentIdentifier<'_>>, forgiving_base64::DecodeError<E>>
 where
     F: FnMut(&[u8]) -> Result<(), E>,
+    E: Error,
 {
     let mut decoder = forgiving_base64::Decoder::new(write_bytes);
     let fragment = decode_without_base64(encoded_body_plus_fragment, |bytes| decoder.feed(bytes))?;

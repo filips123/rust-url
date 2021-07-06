@@ -1,5 +1,7 @@
 //! <https://infra.spec.whatwg.org/#forgiving-base64-decode>
 
+use std::error::Error;
+
 #[derive(Debug)]
 pub struct InvalidBase64(InvalidBase64Details);
 
@@ -18,6 +20,8 @@ impl std::fmt::Display for InvalidBase64 {
     }
 }
 
+impl Error for InvalidBase64 {}
+
 #[derive(Debug)]
 enum InvalidBase64Details {
     UnexpectedSymbol(u8),
@@ -27,30 +31,38 @@ enum InvalidBase64Details {
 }
 
 #[derive(Debug)]
-pub enum DecodeError<E> {
+pub enum DecodeError<E: Error> {
     InvalidBase64(InvalidBase64),
     WriteError(E),
 }
 
-impl<E> std::fmt::Display for DecodeError<E> {
+impl<E: Error> std::fmt::Display for DecodeError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InvalidBase64(inner) => write!(f, "base64 not valid: {:?}", inner),
-            // TODO(lucacasonato): add a `Error` trait bound to E for data-url 0.2.0.
             Self::WriteError(_) => write!(f, "write error"),
         }
     }
 }
 
-// TODO(lucacasonato): implement std::error::Error on DecodeError when E has the `Error` trait bound in data-url 0.2.0.
+impl<E: Error> Error for DecodeError<E> {}
 
-impl<E> From<InvalidBase64Details> for DecodeError<E> {
+impl<E: Error> From<InvalidBase64Details> for DecodeError<E> {
     fn from(e: InvalidBase64Details) -> Self {
         DecodeError::InvalidBase64(InvalidBase64(e))
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum Impossible {}
+
+impl std::fmt::Display for Impossible {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "")
+    }
+}
+
+impl Error for Impossible {}
 
 impl From<DecodeError<Impossible>> for InvalidBase64 {
     fn from(e: DecodeError<Impossible>) -> Self {
@@ -89,6 +101,7 @@ where
 impl<F, E> Decoder<F, E>
 where
     F: FnMut(&[u8]) -> Result<(), E>,
+    E: Error,
 {
     pub fn new(write_bytes: F) -> Self {
         Self {
